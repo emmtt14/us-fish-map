@@ -2,144 +2,195 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clickable Fishing Maps - Puget Sound & Alaska</title>
+  <title>Puget Sound Fishing Map - Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap">
   <style>
     html, body, #map { height: 100%; width: 100%; margin: 0; }
-    body { font-family: system-ui,sans-serif; background: #eef7fb; }
+    body { font-family: 'Montserrat', system-ui, sans-serif; background: #171c24; color: #f3f7fa; }
     .panel {
-      position: absolute; left: 10px; top: 10px; z-index: 1000;
-      background: rgba(255,255,255,0.98); padding: 12px; border-radius: 8px;
-      max-width: 340px; font-size: 15px; box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      position: absolute; left: 18px; top: 16px; z-index: 1000;
+      background: rgba(30,34,45,0.97); padding: 20px 18px 18px 18px; border-radius: 18px;
+      max-width: 370px; font-size: 16px; box-shadow: 0 4px 32px 0 #0007;
+      border: 1.5px solid #293141;
+      color: #f3f7fa;
+      transition: box-shadow 0.2s;
     }
+    .panel b { color: #43e695; }
+    .brand { font-size: 25px; font-weight: 700; color: #43e695; margin-bottom: 1px; letter-spacing: 1px;}
+    .species-toggle, .bait-toggle {
+      width: 100%; margin-bottom: 12px; border-radius: 8px; border: none; padding: 8px 8px 8px 36px; 
+      font-size: 16px; background: #232a39; color: #8ff7dc; outline: none; box-shadow: 0 2px 16px #0002;
+      background-repeat: no-repeat; background-position: 8px center; background-size: 22px;
+    }
+    .bait-toggle { background-color: #253044; color: #b2e2ff; }
+    .button-row { margin-bottom: 8px; }
+    .button, .layer-toggle {
+      background: linear-gradient(90deg,#43e695 0,#3bb2b8 100%);
+      color:#122; border:none; border-radius:8px; padding: 7px 16px; margin:3px 7px 3px 0;
+      font-weight:700; font-size:15px; cursor:pointer; box-shadow: 0 1px 8px #0003;
+      transition: background 0.1s, color 0.1s;
+    }
+    .button:hover, .layer-toggle:hover { background: #2de67e; color: #161; }
+    .layer-on { background: linear-gradient(90deg,#43e695 0,#3bb2b8 100%); color: #171c24; }
+    .layer-off { background: #232a39; color: #8ff7dc; }
+    .widget, .gallery {
+      background: #232a39; border-radius: 12px; padding:10px 16px; font-size:14.5px; margin: 10px 0 8px 0;
+    }
+    .gallery { display:flex; flex-wrap:wrap; gap:7px; background: #1b2231; margin-top: 10px;}
+    .gallery img { width:54px;height:54px;object-fit:cover; border-radius:7px; border:2px solid #43e695;}
+    .about-btn { font-size:13px; padding:3px 11px; margin:5px 0 0 0;}
     .modal-bg {
       position:fixed;top:0;left:0;width:100vw;height:100vh;
-      background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:2000;
+      background:rgba(16,20,35,0.67);display:flex;align-items:center;justify-content:center;z-index:3000;
     }
     .modal {
-      background:white;border-radius:8px;padding:20px;min-width:300px;box-shadow:0 2px 16px rgba(0,0,0,0.22);position:relative;
+      background:#212735;border-radius:18px;padding:30px 26px 24px 26px;min-width:320px;max-width:89vw;
+      box-shadow:0 2px 42px #000b;position:relative;color: #eaf6f7;
+      border:2.5px solid #43e695;
+      font-size: 17px;
     }
-    .close-btn { position:absolute;right:14px;top:10px;font-size:18px;background:none;border:none;cursor:pointer;}
-    .species-toggle { width: 100%; margin-bottom: 8px; }
-    .home-bg {
-      position:fixed;top:0;left:0;width:100vw;height:100vh;
-      background:linear-gradient(120deg,#70aee4 0%,#e4f2fd 100%);display:flex;align-items:center;justify-content:center;z-index:3000;
-    }
-    .home {
-      background:white;border-radius:16px;padding:32px;min-width:270px;text-align:center;box-shadow:0 2px 24px rgba(0,0,0,0.12);position:relative;
-      display:flex;flex-direction:column;align-items:center;
-    }
+    .modal h2 { color: #43e695; font-size: 1.5em; margin-bottom: 8px; }
+    .close-btn { position:absolute;right:20px;top:18px;font-size:23px;background:none;border:none;cursor:pointer;color: #fff;}
     .map-card {
-      border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,0.12);margin:16px;
-      background: #fcfcfc; cursor:pointer; transition:transform .17s; padding:0;
-      display: flex; flex-direction:column; align-items:center; width:220px;
-      opacity:1;
+      border-radius:18px;box-shadow:0 2px 18px #0008;margin:18px;
+      background: #222b40; cursor:pointer; transition:transform .17s; padding:0;
+      display: flex; flex-direction:column; align-items:center; width:235px;
+      opacity:1; border:2px solid #43e695;
     }
     .map-card[aria-disabled="true"] {
-      cursor: not-allowed;
-      opacity:0.5;
-      filter: grayscale(0.5);
+      cursor: not-allowed; opacity:0.5; filter: grayscale(0.5);
     }
     .map-card:active { transform: scale(0.98);}
-    .map-thumb { width:100%; height:120px; object-fit:cover; border-radius:14px 14px 0 0;}
-    .map-name { font-size:20px; font-weight:bold; margin:12px 0;}
-    .weather-widget, .tide-widget {
-      background:#e6ecff; border-radius:8px; padding:8px 12px; margin:8px 0 8px 0; font-size:13px;
-      box-shadow:0 2px 10px rgba(0,0,0,0.06);
+    .map-thumb { width:100%; height:125px; object-fit:cover; border-radius:18px 18px 0 0;}
+    .map-name { font-size:22px; font-weight:bold; margin:13px 0 8px 0; color: #43e695;}
+    .home-bg {
+      position:fixed;top:0;left:0;width:100vw;height:100vh;
+      background:linear-gradient(120deg,#111d2b 0%,#2e6f7e 100%);display:flex;align-items:center;justify-content:center;z-index:3000;
     }
-    .layer-toggle { margin:2px 5px 2px 0; }
-    .gallery { margin-top:12px; display:flex;flex-wrap:wrap;gap:5px;}
-    .gallery img { width:50px;height:50px;object-fit:cover;border-radius:6px;}
-    .about-btn { font-size:12px; padding:2px 8px; margin:4px 0 0 0;}
-    @media (max-width: 600px) {
+    .home {
+      background:#192134;border-radius:22px;padding:36px;min-width:290px;text-align:center;box-shadow:0 2px 44px #000b;position:relative;
+      display:flex;flex-direction:column;align-items:center;
+      border: 2.5px solid #43e695;
+      color: #f7feff;
+    }
+    .home h1 { font-size:2em;color:#43e695;letter-spacing:1px;}
+    .home p { font-size:1.13em; color: #b5e2e1;}
+    @media (max-width: 700px) {
       .panel { max-width: 97vw; font-size: 13px;}
       .modal { min-width:180px; }
       .home { min-width:120px; padding:10px;}
-      .map-card { width:96vw; margin:8px;}
+      .map-card { width:98vw; margin:10px 2vw;}
       .map-name { font-size:16px;}
       .gallery img { width:36px; height:36px;}
     }
+    /* Custom icons for selectors */
+    .species-toggle.fish { background-image: url('https://cdn-icons-png.flaticon.com/512/616/616408.png'); }
+    .bait-toggle.bait { background-image: url('https://cdn-icons-png.flaticon.com/512/616/616554.png'); }
   </style>
 </head>
 <body>
+  <!-- Map -->
   <div id="map" style="display:none"></div>
+  <!-- Panel -->
   <div class="panel" id="panel" style="display:none">
-    <b><span id="mapname"></span> Fishing Map</b><br>
-    Fish Species:
-    <select id="species-select" class="species-toggle"></select>
-    <div>
-      <button class="layer-toggle" onclick="toggleLayer('zones')">Zones</button>
-      <button class="layer-toggle" onclick="toggleLayer('debris')">Debris</button>
-      <button class="layer-toggle" onclick="toggleLayer('troll')">Trolling</button>
+    <div class="brand">Puget Sound Fishing Map</div>
+    <b>Target Fish:</b>
+    <select id="species-select" class="species-toggle fish"></select>
+    <b>Baitfish:</b>
+    <select id="bait-select" class="bait-toggle bait"></select>
+    <div class="button-row">
+      <button class="layer-toggle layer-on" id="zones-btn" onclick="toggleLayer('zones')">Zones</button>
+      <button class="layer-toggle layer-on" id="currents-btn" onclick="toggleLayer('currents')">Currents</button>
+      <button class="layer-toggle layer-on" id="depth-btn" onclick="toggleLayer('depth')">Depth</button>
+      <button class="layer-toggle layer-on" id="baitfish-btn" onclick="toggleLayer('baitfish')">Baitfish</button>
     </div>
-    <div class="weather-widget" id="weather">Weather: --</div>
-    <div class="tide-widget" id="tide">Tide: --</div>
-    <button onclick="showHome()">Home</button>
+    <div class="widget" id="weather">Weather: --</div>
+    <div class="widget" id="tide">Tide: --</div>
+    <div class="widget" id="moon">Moon: --</div>
+    <button class="button" onclick="showHome()">Home</button>
     <button class="about-btn" onclick="showAbout()">About/Help</button>
-    <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="float:right;font-size:13px;">Official Rules</a>
-    <div style="clear:both"></div>
+    <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="float:right;font-size:14px;color:#43e695;">Official Regs</a>
+    <div style="clear:both;margin-bottom:3px"></div>
     <div class="gallery" id="gallery"></div>
-    <button class="about-btn" onclick="suggestFeature()">Suggest a Feature</button>
+    <button class="about-btn" onclick="suggestFeature()">Suggest Feature</button>
     <br>
-    <small>
-      Toggle a species to see overlays and tips for that fish. Click any area for the best trolling spot, depth, and live info.
+    <small style="color:#b5e2e1;">
+      Select a fish or bait, toggle layers, and click any zone for best spots, depth, and real info.<br>
+      <span style="color:#43e695;">Pro tip:</span> Try at dawn/dusk or new moon for bigger bites!
     </small>
   </div>
+  <!-- Modals -->
   <div id="modals"></div>
+  <!-- Home -->
   <div id="homepage" class="home-bg">
     <div class="home">
-      <h1 style="margin-bottom:12px;">Clickable Fishing Maps</h1>
+      <h1>Fishing Maps</h1>
       <div style="display:flex;flex-wrap:wrap;justify-content:center">
         <div class="map-card" onclick="pickMap('puget')" tabindex="0">
           <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/3/37/Puget_Sound_map.png" alt="Puget Sound"/>
           <div class="map-name">Puget Sound</div>
-          <div style="font-size:13px;color:#555;margin-bottom:10px;">WA State Marine Waters</div>
+          <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">Washington State</div>
         </div>
         <div class="map-card" aria-disabled="true" onclick="comingSoon('Alaska')" tabindex="0">
           <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/9/9e/Alaska_map.png" alt="Alaska"/>
           <div class="map-name">Alaska</div>
-          <div style="font-size:13px;color:#555;margin-bottom:10px;">Coming Soon</div>
+          <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">Coming Soon</div>
         </div>
       </div>
-      <p style="margin-top:8px;color:#226;"><b>Select a map to begin!</b></p>
+      <p style="margin-top:13px;">Select a map to begin.<br>Built for <span style="color:#43e695;">fishermen</span> by fishermen.</p>
+      <p style="font-size:13px;color:#43e695;margin-top:10px;">🎣 Try mobile or desktop!</p>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- Data ---
+    // --- Map Data and Overlays ---
     const MAPS = {
       puget: {
         name: "Puget Sound",
         center: [47.6, -122.4],
         zoom: 9,
+        // Real marine zones (WA WDFW)
         zonesURL: "https://opendata.arcgis.com/datasets/4c4c6c9e9c8a4e1cb5d2a65d7b6d43f1_0.geojson",
+        // Real debris/snags (NOAA/WA)
         debrisURL: "https://opendata.arcgis.com/datasets/0397e7f5d80a4d9e8be4b6c7e1b07e77_0.geojson",
+        // Example current overlays (NOAA TMS tiles):
+        currentsTiles: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/obs_meteocean_phy_currents_time/MapServer/tile/{z}/{y}/{x}",
+        // Example bathymetry (NOAA): 
+        depthTiles: "https://tiles.arcgis.com/tiles/5T5nSi527N4F7luB/arcgis/rest/services/NOAA_Bathymetric_Contours/MapServer/tile/{z}/{y}/{x}",
+        // Baitfish hotspots: just demo points
+        baitfishHotspots: [
+          {name:"Saratoga Passage", lat:48.1, lon:-122.4},
+          {name:"Possession Bar", lat:47.9, lon:-122.4},
+          {name:"Point No Point", lat:47.91, lon:-122.53},
+          {name:"Tacoma Narrows", lat:47.28, lon:-122.55}
+        ],
         tideStation: {name:"Seattle",lat:47.6022,lon:-122.339}
       },
       alaska: {
         name: "Alaska",
         center: [61.17, -149.9],
-        zoom: 4,
-        zonesURL: "",
-        debrisURL: "",
-        tideStation: {name:"Anchorage",lat:61.17,lon:-149.9}
+        zoom: 4
       }
     };
-
+    // --- Fish/Bait Data ---
     const FISH_SPECIES = [
-      { id:"chinook", label:"Chinook Salmon", bestDepth:"60-200ft", habitats:["marine"], snagRisk:true, baits:["Herring","Flasher","Spoon"], tips:"Troll deep in summer. Early morning best.", run:"July-Sept" },
-      { id:"coho", label:"Coho Salmon", bestDepth:"20-80ft", habitats:["marine"], snagRisk:true, baits:["Hootchie","Spoon","Herring"], tips:"Midwater, river mouths late summer.", run:"Aug-Oct" },
-      { id:"pink", label:"Pink Salmon", bestDepth:"10-40ft", habitats:["marine"], snagRisk:false, baits:["Pink jig","Buzz Bomb"], tips:"Odd years. Near rivers.", run:"Aug-Sep (odd years)" },
-      { id:"chum", label:"Chum Salmon", bestDepth:"5-30ft", habitats:["marine"], snagRisk:true, baits:["Green fly","Herring"], tips:"Muddy flats, Nov-Dec.", run:"Nov-Dec" },
-      { id:"halibut", label:"Halibut", bestDepth:"100-500ft", habitats:["marine"], snagRisk:true, baits:["Herring","Octopus"], tips:"Deep, sandy flats.", run:"May-Jun" },
-      { id:"lingcod", label:"Lingcod", bestDepth:"30-150ft", habitats:["marine"], snagRisk:true, baits:["Jig","Swimbait"], tips:"Reefs, rocky.", run:"May-Jun" }
+      { id:"chinook", label:"Chinook Salmon", icon:"🐟", bestDepth:"60-200ft", color:"#43e695" },
+      { id:"coho", label:"Coho Salmon", icon:"🐟", bestDepth:"20-80ft", color:"#3bb2b8"},
+      { id:"pink", label:"Pink Salmon", icon:"🐟", bestDepth:"10-40ft", color:"#b2e2ff"},
+      { id:"chum", label:"Chum Salmon", icon:"🐟", bestDepth:"5-30ft", color:"#b5e2e1"},
+      { id:"halibut", label:"Halibut", icon:"🦈", bestDepth:"100-500ft", color:"#eacb7a" },
+      { id:"lingcod", label:"Lingcod", icon:"🦈", bestDepth:"30-150ft", color:"#84e9f2" }
     ];
-
-    let map = null, overlays = {}, currentSpecies = FISH_SPECIES[0].id, currentMap = null;
-    let visibleLayers = {zones:true, debris:true, troll:true};
+    const BAITFISH = [
+      { id:"herring", label:"Pacific Herring", icon:"🐟", color:"#8ff7dc" },
+      { id:"anchovy", label:"Anchovy", icon:"🐟", color:"#b2e2ff" },
+      { id:"sandlance", label:"Sand Lance", icon:"🐟", color:"#cae6e2" }
+    ];
+    let map = null, overlays = {}, currentSpecies = FISH_SPECIES[0].id, currentBait = BAITFISH[0].id, currentMap = null;
+    let layerVis = {zones:true, currents:true, depth:true, baitfish:true};
     let catches = [];
-
     // --- Home page logic ---
     function showHome() {
       document.getElementById("homepage").style.display = "flex";
@@ -157,7 +208,6 @@
       document.getElementById("homepage").style.display = "none";
       document.getElementById("panel").style.display = "";
       document.getElementById("map").style.display = "";
-      document.getElementById("mapname").innerText = MAPS[mapid].name;
       startMap(mapid);
     }
     function comingSoon(name) {
@@ -173,16 +223,18 @@
 
     // --- Map and overlays ---
     function startMap(mapid) {
+      let mapDef = MAPS[mapid];
       let mapEl = document.getElementById("map"); mapEl.innerHTML = "";
-      map = L.map('map').setView(MAPS[mapid].center, MAPS[mapid].zoom);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© Carto' }).addTo(map);
+      map = L.map('map').setView(mapDef.center, mapDef.zoom);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© Carto', opacity:0.93 }).addTo(map);
 
       // Populate fish selector
       let speciesSelect = document.getElementById("species-select");
       speciesSelect.innerHTML = "";
       FISH_SPECIES.forEach(f => {
         let opt = document.createElement("option");
-        opt.value = f.id; opt.innerText = f.label;
+        opt.value = f.id; opt.innerText = f.icon+" "+f.label;
+        opt.style.color = f.color;
         speciesSelect.appendChild(opt);
       });
       currentSpecies = FISH_SPECIES[0].id;
@@ -191,41 +243,67 @@
         currentSpecies = speciesSelect.value;
         updateOverlays();
       };
+      // Populate bait selector
+      let baitSelect = document.getElementById("bait-select");
+      baitSelect.innerHTML = "";
+      BAITFISH.forEach(f => {
+        let opt = document.createElement("option");
+        opt.value = f.id; opt.innerText = f.icon+" "+f.label;
+        opt.style.color = f.color;
+        baitSelect.appendChild(opt);
+      });
+      currentBait = BAITFISH[0].id;
+      baitSelect.value = currentBait;
+      baitSelect.onchange = function() {
+        currentBait = baitSelect.value;
+        updateOverlays();
+      };
+      // Set layer buttons
+      ["zones","currents","depth","baitfish"].forEach(k=>{
+        let btn = document.getElementById(k+"-btn");
+        btn.className = "layer-toggle " + (layerVis[k]?"layer-on":"layer-off");
+      });
       updateOverlays();
       updateWeather();
       updateTide();
+      updateMoon();
       updateGallery();
       map.on("moveend", ()=>{updateWeather();updateTide();});
     }
 
     function updateOverlays() {
-      // Remove overlays
       Object.values(overlays).forEach(layer => { try {map.removeLayer(layer);} catch{} });
       overlays = {};
       if (!currentMap) return;
       let mapDef = MAPS[currentMap];
-      let species = FISH_SPECIES.find(f=>f.id===currentSpecies);
-
-      // Marine Zones
-      if (mapDef.zonesURL && species.habitats.includes('marine') && visibleLayers.zones) {
+      let fish = FISH_SPECIES.find(f=>f.id===currentSpecies);
+      let bait = BAITFISH.find(f=>f.id===currentBait);
+      // Bathymetry
+      if (layerVis.depth && mapDef.depthTiles)
+        overlays.depth = L.tileLayer(mapDef.depthTiles, {opacity:0.75}).addTo(map);
+      // Currents
+      if (layerVis.currents && mapDef.currentsTiles)
+        overlays.currents = L.tileLayer(mapDef.currentsTiles, {opacity:0.5}).addTo(map);
+      // Zones
+      if (mapDef.zonesURL && layerVis.zones) {
         fetch(mapDef.zonesURL).then(r=>r.json()).then(j=>{
           overlays.zones = L.geoJSON(j.features, {
-            style: {color:"#0070f3",weight:2,fillOpacity:0.07},
+            style: {color:fish.color,weight:2,fillOpacity:0.11},
             onEachFeature: (feature, layer) => {
               layer.bindTooltip(feature.properties.AREA_NAME);
               layer.on("click", () => openZoneModal(feature));
             }
           }).addTo(map);
-          // Best Trolling Spots (AI: centroid for demo)
-          if (visibleLayers.troll) {
+          // Best Trolling Spots (centroid)
+          if (layerVis.zones) {
             overlays.zones.eachLayer(layer => {
               let c = layer.feature.geometry.coordinates.flat(2);
               let lat = c.reduce((a,b)=>a+b[1],0)/c.length;
               let lon = c.reduce((a,b)=>a+b[0],0)/c.length;
               if (isFinite(lat) && isFinite(lon)) {
-                let marker = L.marker([lat,lon],{icon:L.divIcon({className:"",html:"🎣",iconSize:[24,24]})})
+                let marker = L.marker([lat,lon],{icon:L.divIcon({className:"",html:"<span style='font-size:2em;'>🎣</span>",iconSize:[30,30]})})
                   .addTo(map)
-                  .bindTooltip("Best Trolling Start<br>Depth: "+species.bestDepth);
+                  .bindTooltip("Best Trolling Start<br>Depth: "+fish.bestDepth);
                 overlays['troll'+layer._leaflet_id] = marker;
               }
             });
@@ -233,20 +311,32 @@
         });
       }
       // Debris
-      if (mapDef.debrisURL && species.snagRisk && visibleLayers.debris) {
+      if (mapDef.debrisURL && layerVis.zones) {
         fetch(mapDef.debrisURL).then(r=>r.json()).then(j=>{
           overlays.debris = L.geoJSON(j.features, {
-            style: {color:"#aa3333",weight:1,fillOpacity:0.19},
+            style: {color:"#a43e79",weight:1,fillOpacity:0.22},
             onEachFeature: (feature, layer) => {
               layer.bindTooltip("Underwater Hazard: " + (feature.properties?.desc||"debris/snag"));
             }
           }).addTo(map);
         });
       }
+      // Baitfish
+      if (layerVis.baitfish && mapDef.baitfishHotspots) {
+        overlays.baitfish = L.layerGroup(
+          mapDef.baitfishHotspots.map(pt=>
+            L.circleMarker([pt.lat,pt.lon],{
+              radius:12,color:bait.color,fillColor:bait.color,fillOpacity:0.5,weight:2
+            }).bindTooltip(`${bait.icon} ${bait.label} Hotspot<br><b>${pt.name}</b>`)
+          )
+        ).addTo(map);
+      }
     }
 
     function toggleLayer(layer) {
-      visibleLayers[layer] = !visibleLayers[layer];
+      layerVis[layer] = !layerVis[layer];
+      let btn = document.getElementById(layer+"-btn");
+      btn.className = "layer-toggle " + (layerVis[layer]?"layer-on":"layer-off");
       updateOverlays();
     }
 
@@ -268,21 +358,28 @@
       if (!mapDef || !mapDef.tideStation) {document.getElementById("tide").innerText="Tide: --"; return;}
       let today = new Date();
       let d = today.toISOString().slice(0,10);
-      // Seattle station for Puget Sound: 9447130, Anchorage for AK: 9455920
-      let station = currentMap === "alaska" ? "9455920" : "9447130";
+      let station = "9447130";
       fetch(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=web_services&begin_date=${d.replace(/-/g,"")}&end_date=${d.replace(/-/g,"")}&datum=MLLW&station=${station}&time_zone=lst_ldt&units=english&interval=hilo&format=json`)
         .then(r=>r.json()).then(d=>{
           let t = d.predictions?.slice(0,2).map(p=>`${p.type} at ${p.t.slice(11,16)} (${p.v} ft)`).join(", ");
           document.getElementById("tide").innerText = "Tide: " + (t || "--");
         }).catch(()=>{document.getElementById("tide").innerText="Tide: --";});
     }
-
+    // --- Moon phase ---
+    function updateMoon() {
+      // Simple API call for demo (moonapi.io is free, or use open-meteo)
+      fetch("https://api.farmsense.net/v1/moonphases/?d="+(Math.floor(Date.now()/1000)))
+        .then(r=>r.json()).then(d=>{
+          let m = d && d[0] ? d[0].Phase : '--';
+          document.getElementById("moon").innerText = "Moon: "+m;
+        }).catch(()=>{document.getElementById("moon").innerText="Moon: --";});
+    }
     // --- Gallery (Recent Catches Demo) ---
     function updateGallery() {
       let g = document.getElementById("gallery");
       g.innerHTML = catches.length ? catches.map(c=>`<img src="${c.photo}" title="${c.species} by ${c.user}">`).join("") : '';
-      if (g.innerHTML) g.innerHTML += `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#d0e7ff;border-radius:6px;width:50px;height:50px;">+</button>`;
-      else g.innerHTML = `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#d0e7ff;border-radius:6px;">Share a Catch</button>`;
+      if (g.innerHTML) g.innerHTML += `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#43e695;color:#192134;border-radius:7px;width:54px;height:54px;">+</button>`;
+      else g.innerHTML = `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#43e695;color:#192134;border-radius:7px;">Share a Catch</button>`;
     }
     function shareCatch() {
       let html = `<div class="modal-bg" onclick="closeModal()">
@@ -296,7 +393,7 @@
               ${FISH_SPECIES.map(s=>`<option value="${s.label}">${s.label}</option>`).join("")}
             </select><br>
             Photo: <input name="photo" type="file" accept="image/*" required><br>
-            <button type="submit">Share</button>
+            <button type="submit" class="button">Share</button>
           </form>
         </div>
       </div>`;
@@ -317,17 +414,17 @@
 
     // --- Modals ---
     function openZoneModal(feature) {
-      let species = FISH_SPECIES.find(f=>f.id===currentSpecies);
+      let fish = FISH_SPECIES.find(f=>f.id===currentSpecies);
+      let bait = BAITFISH.find(f=>f.id===currentBait);
       let html = `
         <div class="modal-bg" onclick="closeModal()">
           <div class="modal" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="closeModal()">×</button>
             <h2>${feature.properties.AREA_NAME}</h2>
-            <b>${species.label}</b><br>
-            <b>Best Trolling Depth:</b> ${species.bestDepth}<br>
-            <b>Bait:</b> ${species.baits.join(", ")}<br>
-            <b>Tips:</b> ${species.tips}<br>
-            <b>Season:</b> ${species.run}<br>
+            <b>${fish.icon} ${fish.label}</b><br>
+            <b>Best Trolling Depth:</b> ${fish.bestDepth}<br>
+            <b>Baitfish:</b> ${bait.icon} ${bait.label}<br>
+            <b>Pro Tip:</b> Try ${bait.label} schools at dawn or dusk.<br>
             <hr>
             <b>Live Info:</b> <span id="zone-weather">Loading...</span>
           </div>
@@ -354,16 +451,15 @@
           <div class="modal" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="closeModal()">×</button>
             <h2>About / Help</h2>
-            <p>This map helps you plan fishing trips in Puget Sound and beyond. Features:</p>
-            <ul>
-              <li>Select a fish species for tailored tips and overlays</li>
-              <li>Toggle layers: zones, debris, trolling spots</li>
-              <li>Live weather & tides for your spot</li>
-              <li>Click a zone for best depth, bait, and more</li>
-              <li>Share your catch with the community (demo)</li>
-              <li>Always check <a href="https://wdfw.wa.gov/fishing/regs" target="_blank">official rules</a> before fishing</li>
-            </ul>
-            <p>Feedback or ideas? Click "Suggest a Feature"!</p>
+            <p>This is a pro fisherman’s map for Puget Sound.<br>
+            - Always check the <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="color:#8ff7dc;">official rules</a>.<br>
+            - Select your fish and bait for best overlays.<br>
+            - Toggle layers: zones, currents, depth, baitfish.<br>
+            - Click a zone for tips and live weather.<br>
+            - Share your catch with the community!<br>
+            - <b>More maps (Alaska, Oregon) coming soon.</b>
+            </p>
+            <p>Want a feature? Click "Suggest Feature"</p>
           </div>
         </div>
       `;
