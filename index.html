@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Clickable Fishing Maps - Puget Sound & Alaska</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    html, body, #map { height: 100%; width: 100%; margin: 0; }
+    body { font-family: system-ui,sans-serif; background: #eef7fb; }
+    .panel {
+      position: absolute; left: 10px; top: 10px; z-index: 1000;
+      background: rgba(255,255,255,0.98); padding: 12px; border-radius: 8px;
+      max-width: 340px; font-size: 15px; box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+    .modal-bg {
+      position:fixed;top:0;left:0;width:100vw;height:100vh;
+      background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:2000;
+    }
+    .modal {
+      background:white;border-radius:8px;padding:20px;min-width:300px;box-shadow:0 2px 16px rgba(0,0,0,0.22);position:relative;
+    }
+    .close-btn { position:absolute;right:14px;top:10px;font-size:18px;background:none;border:none;cursor:pointer;}
+    .species-toggle { width: 100%; margin-bottom: 8px; }
+    .home-bg {
+      position:fixed;top:0;left:0;width:100vw;height:100vh;
+      background:linear-gradient(120deg,#70aee4 0%,#e4f2fd 100%);display:flex;align-items:center;justify-content:center;z-index:3000;
+    }
+    .home {
+      background:white;border-radius:16px;padding:32px;min-width:270px;text-align:center;box-shadow:0 2px 24px rgba(0,0,0,0.12);position:relative;
+      display:flex;flex-direction:column;align-items:center;
+    }
+    .map-card {
+      border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,0.12);margin:16px;
+      background: #fcfcfc; cursor:pointer; transition:transform .17s; padding:0;
+      display: flex; flex-direction:column; align-items:center; width:220px;
+      opacity:1;
+    }
+    .map-card[aria-disabled="true"] {
+      cursor: not-allowed;
+      opacity:0.5;
+      filter: grayscale(0.5);
+    }
+    .map-card:active { transform: scale(0.98);}
+    .map-thumb { width:100%; height:120px; object-fit:cover; border-radius:14px 14px 0 0;}
+    .map-name { font-size:20px; font-weight:bold; margin:12px 0;}
+    .weather-widget, .tide-widget {
+      background:#e6ecff; border-radius:8px; padding:8px 12px; margin:8px 0 8px 0; font-size:13px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.06);
+    }
+    .layer-toggle { margin:2px 5px 2px 0; }
+    .gallery { margin-top:12px; display:flex;flex-wrap:wrap;gap:5px;}
+    .gallery img { width:50px;height:50px;object-fit:cover;border-radius:6px;}
+    .about-btn { font-size:12px; padding:2px 8px; margin:4px 0 0 0;}
+    @media (max-width: 600px) {
+      .panel { max-width: 97vw; font-size: 13px;}
+      .modal { min-width:180px; }
+      .home { min-width:120px; padding:10px;}
+      .map-card { width:96vw; margin:8px;}
+      .map-name { font-size:16px;}
+      .gallery img { width:36px; height:36px;}
+    }
+  </style>
+</head>
+<body>
+  <div id="map" style="display:none"></div>
+  <div class="panel" id="panel" style="display:none">
+    <b><span id="mapname"></span> Fishing Map</b><br>
+    Fish Species:
+    <select id="species-select" class="species-toggle"></select>
+    <div>
+      <button class="layer-toggle" onclick="toggleLayer('zones')">Zones</button>
+      <button class="layer-toggle" onclick="toggleLayer('debris')">Debris</button>
+      <button class="layer-toggle" onclick="toggleLayer('troll')">Trolling</button>
+    </div>
+    <div class="weather-widget" id="weather">Weather: --</div>
+    <div class="tide-widget" id="tide">Tide: --</div>
+    <button onclick="showHome()">Home</button>
+    <button class="about-btn" onclick="showAbout()">About/Help</button>
+    <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="float:right;font-size:13px;">Official Rules</a>
+    <div style="clear:both"></div>
+    <div class="gallery" id="gallery"></div>
+    <button class="about-btn" onclick="suggestFeature()">Suggest a Feature</button>
+    <br>
+    <small>
+      Toggle a species to see overlays and tips for that fish. Click any area for the best trolling spot, depth, and live info.
+    </small>
+  </div>
+  <div id="modals"></div>
+  <div id="homepage" class="home-bg">
+    <div class="home">
+      <h1 style="margin-bottom:12px;">Clickable Fishing Maps</h1>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center">
+        <div class="map-card" onclick="pickMap('puget')" tabindex="0">
+          <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/3/37/Puget_Sound_map.png" alt="Puget Sound"/>
+          <div class="map-name">Puget Sound</div>
+          <div style="font-size:13px;color:#555;margin-bottom:10px;">WA State Marine Waters</div>
+        </div>
+        <div class="map-card" aria-disabled="true" onclick="comingSoon('Alaska')" tabindex="0">
+          <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/9/9e/Alaska_map.png" alt="Alaska"/>
+          <div class="map-name">Alaska</div>
+          <div style="font-size:13px;color:#555;margin-bottom:10px;">Coming Soon</div>
+        </div>
+      </div>
+      <p style="margin-top:8px;color:#226;"><b>Select a map to begin!</b></p>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // --- Data ---
+    const MAPS = {
+      puget: {
+        name: "Puget Sound",
+        center: [47.6, -122.4],
+        zoom: 9,
+        zonesURL: "https://opendata.arcgis.com/datasets/4c4c6c9e9c8a4e1cb5d2a65d7b6d43f1_0.geojson",
+        debrisURL: "https://opendata.arcgis.com/datasets/0397e7f5d80a4d9e8be4b6c7e1b07e77_0.geojson",
+        tideStation: {name:"Seattle",lat:47.6022,lon:-122.339}
+      },
+      alaska: {
+        name: "Alaska",
+        center: [61.17, -149.9],
+        zoom: 4,
+        zonesURL: "",
+        debrisURL: "",
+        tideStation: {name:"Anchorage",lat:61.17,lon:-149.9}
+      }
+    };
+
+    const FISH_SPECIES = [
+      { id:"chinook", label:"Chinook Salmon", bestDepth:"60-200ft", habitats:["marine"], snagRisk:true, baits:["Herring","Flasher","Spoon"], tips:"Troll deep in summer. Early morning best.", run:"July-Sept" },
+      { id:"coho", label:"Coho Salmon", bestDepth:"20-80ft", habitats:["marine"], snagRisk:true, baits:["Hootchie","Spoon","Herring"], tips:"Midwater, river mouths late summer.", run:"Aug-Oct" },
+      { id:"pink", label:"Pink Salmon", bestDepth:"10-40ft", habitats:["marine"], snagRisk:false, baits:["Pink jig","Buzz Bomb"], tips:"Odd years. Near rivers.", run:"Aug-Sep (odd years)" },
+      { id:"chum", label:"Chum Salmon", bestDepth:"5-30ft", habitats:["marine"], snagRisk:true, baits:["Green fly","Herring"], tips:"Muddy flats, Nov-Dec.", run:"Nov-Dec" },
+      { id:"halibut", label:"Halibut", bestDepth:"100-500ft", habitats:["marine"], snagRisk:true, baits:["Herring","Octopus"], tips:"Deep, sandy flats.", run:"May-Jun" },
+      { id:"lingcod", label:"Lingcod", bestDepth:"30-150ft", habitats:["marine"], snagRisk:true, baits:["Jig","Swimbait"], tips:"Reefs, rocky.", run:"May-Jun" }
+    ];
+
+    let map = null, overlays = {}, currentSpecies = FISH_SPECIES[0].id, currentMap = null;
+    let visibleLayers = {zones:true, debris:true, troll:true};
+    let catches = [];
+
+    // --- Home page logic ---
+    function showHome() {
+      document.getElementById("homepage").style.display = "flex";
+      document.getElementById("panel").style.display = "none";
+      document.getElementById("map").style.display = "none";
+      if (map) { map.remove(); map = null; }
+      overlays = {}; currentMap = null;
+    }
+    function pickMap(mapid) {
+      if (mapid === "alaska") {
+        comingSoon("Alaska");
+        return;
+      }
+      currentMap = mapid;
+      document.getElementById("homepage").style.display = "none";
+      document.getElementById("panel").style.display = "";
+      document.getElementById("map").style.display = "";
+      document.getElementById("mapname").innerText = MAPS[mapid].name;
+      startMap(mapid);
+    }
+    function comingSoon(name) {
+      document.getElementById("modals").innerHTML = `
+        <div class="modal-bg" onclick="closeModal()">
+          <div class="modal" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <h2>${name} Map</h2>
+            <p>This zone is coming soon! Check back for Alaska fishing overlays and tips.</p>
+          </div>
+        </div>`;
+    }
+
+    // --- Map and overlays ---
+    function startMap(mapid) {
+      let mapEl = document.getElementById("map"); mapEl.innerHTML = "";
+      map = L.map('map').setView(MAPS[mapid].center, MAPS[mapid].zoom);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© Carto' }).addTo(map);
+
+      // Populate fish selector
+      let speciesSelect = document.getElementById("species-select");
+      speciesSelect.innerHTML = "";
+      FISH_SPECIES.forEach(f => {
+        let opt = document.createElement("option");
+        opt.value = f.id; opt.innerText = f.label;
+        speciesSelect.appendChild(opt);
+      });
+      currentSpecies = FISH_SPECIES[0].id;
+      speciesSelect.value = currentSpecies;
+      speciesSelect.onchange = function() {
+        currentSpecies = speciesSelect.value;
+        updateOverlays();
+      };
+      updateOverlays();
+      updateWeather();
+      updateTide();
+      updateGallery();
+      map.on("moveend", ()=>{updateWeather();updateTide();});
+    }
+
+    function updateOverlays() {
+      // Remove overlays
+      Object.values(overlays).forEach(layer => { try {map.removeLayer(layer);} catch{} });
+      overlays = {};
+      if (!currentMap) return;
+      let mapDef = MAPS[currentMap];
+      let species = FISH_SPECIES.find(f=>f.id===currentSpecies);
+
+      // Marine Zones
+      if (mapDef.zonesURL && species.habitats.includes('marine') && visibleLayers.zones) {
+        fetch(mapDef.zonesURL).then(r=>r.json()).then(j=>{
+          overlays.zones = L.geoJSON(j.features, {
+            style: {color:"#0070f3",weight:2,fillOpacity:0.07},
+            onEachFeature: (feature, layer) => {
+              layer.bindTooltip(feature.properties.AREA_NAME);
+              layer.on("click", () => openZoneModal(feature));
+            }
+          }).addTo(map);
+          // Best Trolling Spots (AI: centroid for demo)
+          if (visibleLayers.troll) {
+            overlays.zones.eachLayer(layer => {
+              let c = layer.feature.geometry.coordinates.flat(2);
+              let lat = c.reduce((a,b)=>a+b[1],0)/c.length;
+              let lon = c.reduce((a,b)=>a+b[0],0)/c.length;
+              if (isFinite(lat) && isFinite(lon)) {
+                let marker = L.marker([lat,lon],{icon:L.divIcon({className:"",html:"🎣",iconSize:[24,24]})})
+                  .addTo(map)
+                  .bindTooltip("Best Trolling Start<br>Depth: "+species.bestDepth);
+                overlays['troll'+layer._leaflet_id] = marker;
+              }
+            });
+          }
+        });
+      }
+      // Debris
+      if (mapDef.debrisURL && species.snagRisk && visibleLayers.debris) {
+        fetch(mapDef.debrisURL).then(r=>r.json()).then(j=>{
+          overlays.debris = L.geoJSON(j.features, {
+            style: {color:"#aa3333",weight:1,fillOpacity:0.19},
+            onEachFeature: (feature, layer) => {
+              layer.bindTooltip("Underwater Hazard: " + (feature.properties?.desc||"debris/snag"));
+            }
+          }).addTo(map);
+        });
+      }
+    }
+
+    function toggleLayer(layer) {
+      visibleLayers[layer] = !visibleLayers[layer];
+      updateOverlays();
+    }
+
+    // --- Weather ---
+    function updateWeather() {
+      if (!map) return;
+      let c = map.getCenter();
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lng}&current_weather=true`)
+        .then(r=>r.json()).then(d=>{
+          let w = d.current_weather;
+          document.getElementById("weather").innerText = w ?
+            `Weather: ${w.temperature}°C, wind ${w.windspeed} km/h`
+            : "Weather: --";
+        });
+    }
+    // --- Tide ---
+    function updateTide() {
+      let mapDef = MAPS[currentMap];
+      if (!mapDef || !mapDef.tideStation) {document.getElementById("tide").innerText="Tide: --"; return;}
+      let today = new Date();
+      let d = today.toISOString().slice(0,10);
+      // Seattle station for Puget Sound: 9447130, Anchorage for AK: 9455920
+      let station = currentMap === "alaska" ? "9455920" : "9447130";
+      fetch(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=web_services&begin_date=${d.replace(/-/g,"")}&end_date=${d.replace(/-/g,"")}&datum=MLLW&station=${station}&time_zone=lst_ldt&units=english&interval=hilo&format=json`)
+        .then(r=>r.json()).then(d=>{
+          let t = d.predictions?.slice(0,2).map(p=>`${p.type} at ${p.t.slice(11,16)} (${p.v} ft)`).join(", ");
+          document.getElementById("tide").innerText = "Tide: " + (t || "--");
+        }).catch(()=>{document.getElementById("tide").innerText="Tide: --";});
+    }
+
+    // --- Gallery (Recent Catches Demo) ---
+    function updateGallery() {
+      let g = document.getElementById("gallery");
+      g.innerHTML = catches.length ? catches.map(c=>`<img src="${c.photo}" title="${c.species} by ${c.user}">`).join("") : '';
+      if (g.innerHTML) g.innerHTML += `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#d0e7ff;border-radius:6px;width:50px;height:50px;">+</button>`;
+      else g.innerHTML = `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#d0e7ff;border-radius:6px;">Share a Catch</button>`;
+    }
+    function shareCatch() {
+      let html = `<div class="modal-bg" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+          <button class="close-btn" onclick="closeModal()">×</button>
+          <h2>Share Your Catch</h2>
+          <form id="catch-form">
+            Name: <input name="user" required><br>
+            Species:
+            <select name="species">
+              ${FISH_SPECIES.map(s=>`<option value="${s.label}">${s.label}</option>`).join("")}
+            </select><br>
+            Photo: <input name="photo" type="file" accept="image/*" required><br>
+            <button type="submit">Share</button>
+          </form>
+        </div>
+      </div>`;
+      document.getElementById("modals").innerHTML = html;
+      document.getElementById("catch-form").onsubmit = function(e) {
+        e.preventDefault();
+        let fd = new FormData(e.target);
+        let reader = new FileReader();
+        reader.onload = function(ev) {
+          catches.unshift({user:fd.get("user"),species:fd.get("species"),photo:ev.target.result});
+          closeModal();
+          updateGallery();
+        };
+        reader.readAsDataURL(fd.get("photo"));
+      };
+    }
+    window.shareCatch = shareCatch;
+
+    // --- Modals ---
+    function openZoneModal(feature) {
+      let species = FISH_SPECIES.find(f=>f.id===currentSpecies);
+      let html = `
+        <div class="modal-bg" onclick="closeModal()">
+          <div class="modal" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <h2>${feature.properties.AREA_NAME}</h2>
+            <b>${species.label}</b><br>
+            <b>Best Trolling Depth:</b> ${species.bestDepth}<br>
+            <b>Bait:</b> ${species.baits.join(", ")}<br>
+            <b>Tips:</b> ${species.tips}<br>
+            <b>Season:</b> ${species.run}<br>
+            <hr>
+            <b>Live Info:</b> <span id="zone-weather">Loading...</span>
+          </div>
+        </div>`;
+      document.getElementById("modals").innerHTML = html;
+      // Fetch live weather
+      let c = feature.geometry.coordinates.flat(2);
+      let lat = c.reduce((a,b)=>a+b[1],0)/c.length;
+      let lon = c.reduce((a,b)=>a+b[0],0)/c.length;
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+        .then(r=>r.json())
+        .then(d=>{
+          let w = d.current_weather;
+          if (w) document.getElementById("zone-weather").innerText = `${w.temperature}°C, wind ${w.windspeed} km/h`;
+        });
+    }
+    function closeModal() { document.getElementById("modals").innerHTML = "" }
+    window.closeModal = closeModal;
+
+    // --- About/Help Modal ---
+    function showAbout() {
+      document.getElementById("modals").innerHTML = `
+        <div class="modal-bg" onclick="closeModal()">
+          <div class="modal" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <h2>About / Help</h2>
+            <p>This map helps you plan fishing trips in Puget Sound and beyond. Features:</p>
+            <ul>
+              <li>Select a fish species for tailored tips and overlays</li>
+              <li>Toggle layers: zones, debris, trolling spots</li>
+              <li>Live weather & tides for your spot</li>
+              <li>Click a zone for best depth, bait, and more</li>
+              <li>Share your catch with the community (demo)</li>
+              <li>Always check <a href="https://wdfw.wa.gov/fishing/regs" target="_blank">official rules</a> before fishing</li>
+            </ul>
+            <p>Feedback or ideas? Click "Suggest a Feature"!</p>
+          </div>
+        </div>
+      `;
+    }
+    window.showAbout = showAbout;
+
+    // --- Suggest Feature ---
+    function suggestFeature() {
+      window.open("mailto:emmtt14@gmail.com?subject=Fishing%20Map%20Suggestion","_blank");
+    }
+    window.suggestFeature = suggestFeature;
+
+    // --- On load: show home page ---
+    showHome();
+    window.pickMap = pickMap;
+    window.showHome = showHome;
+    window.comingSoon = comingSoon;
+  </script>
+</body>
+</html>
