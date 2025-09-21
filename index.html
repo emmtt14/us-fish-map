@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Puget Sound Fishing Map - Pro</title>
+  <title>Fishing Map Pro: Puget Sound, Alaska & Outer Banks</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:700,400&display=swap">
@@ -17,7 +17,6 @@
       color: #f3f7fa;
       transition: box-shadow 0.2s;
     }
-    .panel b { color: #43e695; }
     .brand { font-size: 25px; font-weight: 700; color: #43e695; margin-bottom: 1px; letter-spacing: 1px;}
     .species-toggle, .bait-toggle {
       width: 100%; margin-bottom: 12px; border-radius: 8px; border: none; padding: 8px 8px 8px 36px; 
@@ -85,17 +84,14 @@
       .map-name { font-size:16px;}
       .gallery img { width:36px; height:36px;}
     }
-    /* Custom icons for selectors */
     .species-toggle.fish { background-image: url('https://cdn-icons-png.flaticon.com/512/616/616408.png'); }
     .bait-toggle.bait { background-image: url('https://cdn-icons-png.flaticon.com/512/616/616554.png'); }
   </style>
 </head>
 <body>
-  <!-- Map -->
   <div id="map" style="display:none"></div>
-  <!-- Panel -->
   <div class="panel" id="panel" style="display:none">
-    <div class="brand">Puget Sound Fishing Map</div>
+    <div class="brand" id="brand-title">Fishing Map</div>
     <b>Target Fish:</b>
     <select id="species-select" class="species-toggle fish"></select>
     <b>Baitfish:</b>
@@ -111,7 +107,7 @@
     <div class="widget" id="moon">Moon: --</div>
     <button class="button" onclick="showHome()">Home</button>
     <button class="about-btn" onclick="showAbout()">About/Help</button>
-    <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="float:right;font-size:14px;color:#43e695;">Official Regs</a>
+    <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="float:right;font-size:14px;color:#43e695;" id="regs-link">Official Regs</a>
     <div style="clear:both;margin-bottom:3px"></div>
     <div class="gallery" id="gallery"></div>
     <button class="about-btn" onclick="suggestFeature()">Suggest Feature</button>
@@ -121,9 +117,7 @@
       <span style="color:#43e695;">Pro tip:</span> Try at dawn/dusk or new moon for bigger bites!
     </small>
   </div>
-  <!-- Modals -->
   <div id="modals"></div>
-  <!-- Home -->
   <div id="homepage" class="home-bg">
     <div class="home">
       <h1>Fishing Maps</h1>
@@ -133,10 +127,15 @@
           <div class="map-name">Puget Sound</div>
           <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">Washington State</div>
         </div>
-        <div class="map-card" aria-disabled="true" onclick="comingSoon('Alaska')" tabindex="0">
+        <div class="map-card" onclick="pickMap('alaska')" tabindex="0">
           <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/9/9e/Alaska_map.png" alt="Alaska"/>
           <div class="map-name">Alaska</div>
-          <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">Coming Soon</div>
+          <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">Gulf & SE Alaska</div>
+        </div>
+        <div class="map-card" onclick="pickMap('outerbanks')" tabindex="0">
+          <img class="map-thumb" src="https://upload.wikimedia.org/wikipedia/commons/4/42/North_Carolina_Outer_Banks_Cape_Hatteras.png" alt="Outer Banks"/>
+          <div class="map-name">Outer Banks</div>
+          <div style="font-size:13px;color:#b5e2e1;margin-bottom:10px;">North Carolina</div>
         </div>
       </div>
       <p style="margin-top:13px;">Select a map to begin.<br>Built for <span style="color:#43e695;">fishermen</span> by fishermen.</p>
@@ -145,53 +144,105 @@
   </div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- Map Data and Overlays ---
+    // DATA FOR MAPS/FISH/BAITFISH
     const MAPS = {
       puget: {
         name: "Puget Sound",
         center: [47.6, -122.4],
         zoom: 9,
-        // Real marine zones (WA WDFW)
+        brand: "Puget Sound Fishing Map",
         zonesURL: "https://opendata.arcgis.com/datasets/4c4c6c9e9c8a4e1cb5d2a65d7b6d43f1_0.geojson",
-        // Real debris/snags (NOAA/WA)
         debrisURL: "https://opendata.arcgis.com/datasets/0397e7f5d80a4d9e8be4b6c7e1b07e77_0.geojson",
-        // Example current overlays (NOAA TMS tiles):
         currentsTiles: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/obs_meteocean_phy_currents_time/MapServer/tile/{z}/{y}/{x}",
-        // Example bathymetry (NOAA): 
         depthTiles: "https://tiles.arcgis.com/tiles/5T5nSi527N4F7luB/arcgis/rest/services/NOAA_Bathymetric_Contours/MapServer/tile/{z}/{y}/{x}",
-        // Baitfish hotspots: just demo points
         baitfishHotspots: [
           {name:"Saratoga Passage", lat:48.1, lon:-122.4},
           {name:"Possession Bar", lat:47.9, lon:-122.4},
           {name:"Point No Point", lat:47.91, lon:-122.53},
           {name:"Tacoma Narrows", lat:47.28, lon:-122.55}
         ],
-        tideStation: {name:"Seattle",lat:47.6022,lon:-122.339}
+        tideStation: {name:"Seattle",lat:47.6022,lon:-122.339},
+        regs: "https://wdfw.wa.gov/fishing/regs",
+        fish: [
+          { id:"chinook", label:"Chinook Salmon", icon:"🐟", bestDepth:"60-200ft", color:"#43e695" },
+          { id:"coho", label:"Coho Salmon", icon:"🐟", bestDepth:"20-80ft", color:"#3bb2b8"},
+          { id:"pink", label:"Pink Salmon", icon:"🐟", bestDepth:"10-40ft", color:"#b2e2ff"},
+          { id:"chum", label:"Chum Salmon", icon:"🐟", bestDepth:"5-30ft", color:"#b5e2e1"},
+          { id:"halibut", label:"Halibut", icon:"🦈", bestDepth:"100-500ft", color:"#eacb7a" },
+          { id:"lingcod", label:"Lingcod", icon:"🦈", bestDepth:"30-150ft", color:"#84e9f2" }
+        ],
+        bait: [
+          { id:"herring", label:"Pacific Herring", icon:"🐟", color:"#8ff7dc" },
+          { id:"anchovy", label:"Anchovy", icon:"🐟", color:"#b2e2ff" },
+          { id:"sandlance", label:"Sand Lance", icon:"🐟", color:"#cae6e2" }
+        ]
       },
       alaska: {
         name: "Alaska",
-        center: [61.17, -149.9],
-        zoom: 4
+        center: [58.3, -135.0],
+        zoom: 5,
+        brand: "Alaska Fishing Map",
+        // (NOAA Alaska demo marine zones - for real overlays use region-specific GeoJSON)
+        zonesURL: "https://opendata.arcgis.com/datasets/8a8d5f93ba4643e4bc0b7aebd95e3a5a_0.geojson",
+        debrisURL: "", // Not public, but could add
+        currentsTiles: "https://tiles.arcgis.com/tiles/vQrvj6aQxqNQYpVY/arcgis/rest/services/Tidal_Currents_Alaska/MapServer/tile/{z}/{y}/{x}",
+        depthTiles: "https://tiles.arcgis.com/tiles/5T5nSi527N4F7luB/arcgis/rest/services/NOAA_Bathymetric_Contours/MapServer/tile/{z}/{y}/{x}",
+        baitfishHotspots: [
+          {name:"Sitka Sound", lat:57.08, lon:-135.36},
+          {name:"Icy Strait", lat:58.27, lon:-135.36},
+          {name:"Resurrection Bay", lat:60.12, lon:-149.41},
+          {name:"Kodiak", lat:57.8, lon:-152.4}
+        ],
+        tideStation: {name:"Sitka",lat:57.08,lon:-135.36},
+        regs: "https://www.adfg.alaska.gov/index.cfm?adfg=fishregulations.main",
+        fish: [
+          { id:"king", label:"King Salmon", icon:"🐟", bestDepth:"20-150ft", color:"#43e695" },
+          { id:"coho", label:"Coho Salmon", icon:"🐟", bestDepth:"10-60ft", color:"#3bb2b8"},
+          { id:"halibut", label:"Halibut", icon:"🦈", bestDepth:"100-600ft", color:"#eacb7a" },
+          { id:"lingcod", label:"Lingcod", icon:"🦈", bestDepth:"60-200ft", color:"#84e9f2" },
+          { id:"rockfish", label:"Rockfish", icon:"🐡", bestDepth:"40-300ft", color:"#e88b6b"}
+        ],
+        bait: [
+          { id:"herring", label:"Pacific Herring", icon:"🐟", color:"#8ff7dc" },
+          { id:"squid", label:"Squid", icon:"🦑", color:"#f8e47d" },
+          { id:"pollock", label:"Pollock", icon:"🐟", color:"#b2e2ff" }
+        ]
+      },
+      outerbanks: {
+        name: "Outer Banks",
+        center: [35.45, -75.55],
+        zoom: 8,
+        brand: "Outer Banks NC Fishing Map",
+        // Example marine zones (demo, not real overlays)
+        zonesURL: "https://opendata.arcgis.com/datasets/17d1c2d6e0d540d8b8c3e2e3a2f2c4c2_0.geojson", // You can swap this for a better NC marine zones geojson
+        debrisURL: "",
+        currentsTiles: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/obs_meteocean_phy_currents_time/MapServer/tile/{z}/{y}/{x}",
+        depthTiles: "https://tiles.arcgis.com/tiles/5T5nSi527N4F7luB/arcgis/rest/services/NOAA_Bathymetric_Contours/MapServer/tile/{z}/{y}/{x}",
+        baitfishHotspots: [
+          {name:"Hatteras Bight", lat:35.2, lon:-75.53},
+          {name:"Oregon Inlet", lat:35.8, lon:-75.54},
+          {name:"Diamond Shoals", lat:35.16, lon:-75.18},
+          {name:"Cape Lookout", lat:34.6, lon:-76.53}
+        ],
+        tideStation: {name:"Oregon Inlet",lat:35.8,lon:-75.54},
+        regs: "https://deq.nc.gov/about/divisions/marine-fisheries/marine-fisheries-rules-and-regulations",
+        fish: [
+          { id:"red", label:"Red Drum", icon:"🐟", bestDepth:"5-25ft", color:"#e67e43" },
+          { id:"speck", label:"Speckled Trout", icon:"🐟", bestDepth:"5-15ft", color:"#b2e2ff"},
+          { id:"flounder", label:"Flounder", icon:"🐟", bestDepth:"10-30ft", color:"#eacb7a" },
+          { id:"kingmackerel", label:"King Mackerel", icon:"🐟", bestDepth:"20-70ft", color:"#43e695" },
+          { id:"cobia", label:"Cobia", icon:"🐟", bestDepth:"10-80ft", color:"#84e9f2" }
+        ],
+        bait: [
+          { id:"menhaden", label:"Menhaden", icon:"🐟", color:"#f8e47d" },
+          { id:"mullets", label:"Mullet", icon:"🐟", color:"#b2e2ff" },
+          { id:"glassminnow", label:"Glass Minnow", icon:"🐟", color:"#cae6e2" }
+        ]
       }
     };
-    // --- Fish/Bait Data ---
-    const FISH_SPECIES = [
-      { id:"chinook", label:"Chinook Salmon", icon:"🐟", bestDepth:"60-200ft", color:"#43e695" },
-      { id:"coho", label:"Coho Salmon", icon:"🐟", bestDepth:"20-80ft", color:"#3bb2b8"},
-      { id:"pink", label:"Pink Salmon", icon:"🐟", bestDepth:"10-40ft", color:"#b2e2ff"},
-      { id:"chum", label:"Chum Salmon", icon:"🐟", bestDepth:"5-30ft", color:"#b5e2e1"},
-      { id:"halibut", label:"Halibut", icon:"🦈", bestDepth:"100-500ft", color:"#eacb7a" },
-      { id:"lingcod", label:"Lingcod", icon:"🦈", bestDepth:"30-150ft", color:"#84e9f2" }
-    ];
-    const BAITFISH = [
-      { id:"herring", label:"Pacific Herring", icon:"🐟", color:"#8ff7dc" },
-      { id:"anchovy", label:"Anchovy", icon:"🐟", color:"#b2e2ff" },
-      { id:"sandlance", label:"Sand Lance", icon:"🐟", color:"#cae6e2" }
-    ];
-    let map = null, overlays = {}, currentSpecies = FISH_SPECIES[0].id, currentBait = BAITFISH[0].id, currentMap = null;
+    let map = null, overlays = {}, currentSpecies = "", currentBait = "", currentMap = null;
     let layerVis = {zones:true, currents:true, depth:true, baitfish:true};
     let catches = [];
-    // --- Home page logic ---
     function showHome() {
       document.getElementById("homepage").style.display = "flex";
       document.getElementById("panel").style.display = "none";
@@ -200,65 +251,50 @@
       overlays = {}; currentMap = null;
     }
     function pickMap(mapid) {
-      if (mapid === "alaska") {
-        comingSoon("Alaska");
-        return;
-      }
       currentMap = mapid;
       document.getElementById("homepage").style.display = "none";
       document.getElementById("panel").style.display = "";
       document.getElementById("map").style.display = "";
       startMap(mapid);
     }
-    function comingSoon(name) {
-      document.getElementById("modals").innerHTML = `
-        <div class="modal-bg" onclick="closeModal()">
-          <div class="modal" onclick="event.stopPropagation()">
-            <button class="close-btn" onclick="closeModal()">×</button>
-            <h2>${name} Map</h2>
-            <p>This zone is coming soon! Check back for Alaska fishing overlays and tips.</p>
-          </div>
-        </div>`;
-    }
-
-    // --- Map and overlays ---
     function startMap(mapid) {
       let mapDef = MAPS[mapid];
+      document.getElementById("brand-title").innerText = mapDef.brand || "Fishing Map";
+      let regs = document.getElementById("regs-link");
+      regs.href = mapDef.regs || "#";
       let mapEl = document.getElementById("map"); mapEl.innerHTML = "";
       map = L.map('map').setView(mapDef.center, mapDef.zoom);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '© Carto', opacity:0.93 }).addTo(map);
-
-      // Populate fish selector
       let speciesSelect = document.getElementById("species-select");
+      let fishList = mapDef.fish;
       speciesSelect.innerHTML = "";
-      FISH_SPECIES.forEach(f => {
+      fishList.forEach(f => {
         let opt = document.createElement("option");
         opt.value = f.id; opt.innerText = f.icon+" "+f.label;
         opt.style.color = f.color;
         speciesSelect.appendChild(opt);
       });
-      currentSpecies = FISH_SPECIES[0].id;
+      currentSpecies = fishList[0].id;
       speciesSelect.value = currentSpecies;
       speciesSelect.onchange = function() {
         currentSpecies = speciesSelect.value;
         updateOverlays();
       };
-      // Populate bait selector
       let baitSelect = document.getElementById("bait-select");
+      let baitList = mapDef.bait;
       baitSelect.innerHTML = "";
-      BAITFISH.forEach(f => {
+      baitList.forEach(f => {
         let opt = document.createElement("option");
         opt.value = f.id; opt.innerText = f.icon+" "+f.label;
         opt.style.color = f.color;
         baitSelect.appendChild(opt);
       });
-      currentBait = BAITFISH[0].id;
+      currentBait = baitList[0].id;
       baitSelect.value = currentBait;
       baitSelect.onchange = function() {
         currentBait = baitSelect.value;
         updateOverlays();
       };
-      // Set layer buttons
       ["zones","currents","depth","baitfish"].forEach(k=>{
         let btn = document.getElementById(k+"-btn");
         btn.className = "layer-toggle " + (layerVis[k]?"layer-on":"layer-off");
@@ -270,31 +306,26 @@
       updateGallery();
       map.on("moveend", ()=>{updateWeather();updateTide();});
     }
-
     function updateOverlays() {
       Object.values(overlays).forEach(layer => { try {map.removeLayer(layer);} catch{} });
       overlays = {};
       if (!currentMap) return;
       let mapDef = MAPS[currentMap];
-      let fish = FISH_SPECIES.find(f=>f.id===currentSpecies);
-      let bait = BAITFISH.find(f=>f.id===currentBait);
-      // Bathymetry
+      let fish = mapDef.fish.find(f=>f.id===currentSpecies);
+      let bait = mapDef.bait.find(f=>f.id===currentBait);
       if (layerVis.depth && mapDef.depthTiles)
         overlays.depth = L.tileLayer(mapDef.depthTiles, {opacity:0.75}).addTo(map);
-      // Currents
       if (layerVis.currents && mapDef.currentsTiles)
         overlays.currents = L.tileLayer(mapDef.currentsTiles, {opacity:0.5}).addTo(map);
-      // Zones
       if (mapDef.zonesURL && layerVis.zones) {
         fetch(mapDef.zonesURL).then(r=>r.json()).then(j=>{
           overlays.zones = L.geoJSON(j.features, {
             style: {color:fish.color,weight:2,fillOpacity:0.11},
             onEachFeature: (feature, layer) => {
-              layer.bindTooltip(feature.properties.AREA_NAME);
+              layer.bindTooltip(feature.properties.AREA_NAME||feature.properties.NAME||"Zone");
               layer.on("click", () => openZoneModal(feature));
             }
           }).addTo(map);
-          // Best Trolling Spots (centroid)
           if (layerVis.zones) {
             overlays.zones.eachLayer(layer => {
               let c = layer.feature.geometry.coordinates.flat(2);
@@ -310,7 +341,6 @@
           }
         });
       }
-      // Debris
       if (mapDef.debrisURL && layerVis.zones) {
         fetch(mapDef.debrisURL).then(r=>r.json()).then(j=>{
           overlays.debris = L.geoJSON(j.features, {
@@ -321,7 +351,6 @@
           }).addTo(map);
         });
       }
-      // Baitfish
       if (layerVis.baitfish && mapDef.baitfishHotspots) {
         overlays.baitfish = L.layerGroup(
           mapDef.baitfishHotspots.map(pt=>
@@ -332,15 +361,12 @@
         ).addTo(map);
       }
     }
-
     function toggleLayer(layer) {
       layerVis[layer] = !layerVis[layer];
       let btn = document.getElementById(layer+"-btn");
       btn.className = "layer-toggle " + (layerVis[layer]?"layer-on":"layer-off");
       updateOverlays();
     }
-
-    // --- Weather ---
     function updateWeather() {
       if (!map) return;
       let c = map.getCenter();
@@ -352,29 +378,27 @@
             : "Weather: --";
         });
     }
-    // --- Tide ---
     function updateTide() {
       let mapDef = MAPS[currentMap];
       if (!mapDef || !mapDef.tideStation) {document.getElementById("tide").innerText="Tide: --"; return;}
       let today = new Date();
       let d = today.toISOString().slice(0,10);
       let station = "9447130";
+      if(currentMap==="outerbanks") station="8652587";
+      if(currentMap==="alaska") station="9451600";
       fetch(`https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=web_services&begin_date=${d.replace(/-/g,"")}&end_date=${d.replace(/-/g,"")}&datum=MLLW&station=${station}&time_zone=lst_ldt&units=english&interval=hilo&format=json`)
         .then(r=>r.json()).then(d=>{
           let t = d.predictions?.slice(0,2).map(p=>`${p.type} at ${p.t.slice(11,16)} (${p.v} ft)`).join(", ");
           document.getElementById("tide").innerText = "Tide: " + (t || "--");
         }).catch(()=>{document.getElementById("tide").innerText="Tide: --";});
     }
-    // --- Moon phase ---
     function updateMoon() {
-      // Simple API call for demo (moonapi.io is free, or use open-meteo)
       fetch("https://api.farmsense.net/v1/moonphases/?d="+(Math.floor(Date.now()/1000)))
         .then(r=>r.json()).then(d=>{
           let m = d && d[0] ? d[0].Phase : '--';
           document.getElementById("moon").innerText = "Moon: "+m;
         }).catch(()=>{document.getElementById("moon").innerText="Moon: --";});
     }
-    // --- Gallery (Recent Catches Demo) ---
     function updateGallery() {
       let g = document.getElementById("gallery");
       g.innerHTML = catches.length ? catches.map(c=>`<img src="${c.photo}" title="${c.species} by ${c.user}">`).join("") : '';
@@ -382,6 +406,8 @@
       else g.innerHTML = `<button onclick="shareCatch()" style="font-size:18px;border:none;background:#43e695;color:#192134;border-radius:7px;">Share a Catch</button>`;
     }
     function shareCatch() {
+      let mapDef = currentMap ? MAPS[currentMap] : MAPS["puget"];
+      let fishList = mapDef.fish;
       let html = `<div class="modal-bg" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
           <button class="close-btn" onclick="closeModal()">×</button>
@@ -390,7 +416,7 @@
             Name: <input name="user" required><br>
             Species:
             <select name="species">
-              ${FISH_SPECIES.map(s=>`<option value="${s.label}">${s.label}</option>`).join("")}
+              ${fishList.map(s=>`<option value="${s.label}">${s.label}</option>`).join("")}
             </select><br>
             Photo: <input name="photo" type="file" accept="image/*" required><br>
             <button type="submit" class="button">Share</button>
@@ -411,16 +437,15 @@
       };
     }
     window.shareCatch = shareCatch;
-
-    // --- Modals ---
     function openZoneModal(feature) {
-      let fish = FISH_SPECIES.find(f=>f.id===currentSpecies);
-      let bait = BAITFISH.find(f=>f.id===currentBait);
+      let mapDef = MAPS[currentMap];
+      let fish = mapDef.fish.find(f=>f.id===currentSpecies);
+      let bait = mapDef.bait.find(f=>f.id===currentBait);
       let html = `
         <div class="modal-bg" onclick="closeModal()">
           <div class="modal" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="closeModal()">×</button>
-            <h2>${feature.properties.AREA_NAME}</h2>
+            <h2>${feature.properties.AREA_NAME||feature.properties.NAME||"Zone"}</h2>
             <b>${fish.icon} ${fish.label}</b><br>
             <b>Best Trolling Depth:</b> ${fish.bestDepth}<br>
             <b>Baitfish:</b> ${bait.icon} ${bait.label}<br>
@@ -430,7 +455,6 @@
           </div>
         </div>`;
       document.getElementById("modals").innerHTML = html;
-      // Fetch live weather
       let c = feature.geometry.coordinates.flat(2);
       let lat = c.reduce((a,b)=>a+b[1],0)/c.length;
       let lon = c.reduce((a,b)=>a+b[0],0)/c.length;
@@ -443,36 +467,31 @@
     }
     function closeModal() { document.getElementById("modals").innerHTML = "" }
     window.closeModal = closeModal;
-
-    // --- About/Help Modal ---
     function showAbout() {
       document.getElementById("modals").innerHTML = `
         <div class="modal-bg" onclick="closeModal()">
           <div class="modal" onclick="event.stopPropagation()">
             <button class="close-btn" onclick="closeModal()">×</button>
             <h2>About / Help</h2>
-            <p>This is a pro fisherman’s map for Puget Sound.<br>
-            - Always check the <a href="https://wdfw.wa.gov/fishing/regs" target="_blank" style="color:#8ff7dc;">official rules</a>.<br>
-            - Select your fish and bait for best overlays.<br>
+            <p>This map helps you plan fishing trips nationwide.<br>
+            - Always check region <a href="#" id="about-regs-link" target="_blank" style="color:#8ff7dc;">official rules</a>.<br>
+            - Select your fish & bait for overlays.<br>
             - Toggle layers: zones, currents, depth, baitfish.<br>
             - Click a zone for tips and live weather.<br>
             - Share your catch with the community!<br>
-            - <b>More maps (Alaska, Oregon) coming soon.</b>
             </p>
             <p>Want a feature? Click "Suggest Feature"</p>
           </div>
         </div>
       `;
+      let mapDef = currentMap ? MAPS[currentMap] : MAPS["puget"];
+      document.getElementById("about-regs-link").href = mapDef.regs || "#";
     }
     window.showAbout = showAbout;
-
-    // --- Suggest Feature ---
     function suggestFeature() {
       window.open("mailto:emmtt14@gmail.com?subject=Fishing%20Map%20Suggestion","_blank");
     }
     window.suggestFeature = suggestFeature;
-
-    // --- On load: show home page ---
     showHome();
     window.pickMap = pickMap;
     window.showHome = showHome;
